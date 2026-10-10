@@ -1,0 +1,362 @@
+Software Requirements Specification (SRS)
+
+Sensitive Data Leak Detector for APIs (T1-PS7)
+Problem statement T1-PS7, Threat Detection and Security Monitoring. Version 1.0. Tech
+stack: Python, JSON parsing, regular expressions, custom detection rules, Microsoft
+Presidio (optional), and either a Jupyter Notebook or a command-line tool.
+
+1. Introduction
+1.1 Purpose
+This document describes what the Sensitive Data Leak Detector for APIs needs to do and
+how we will know it works. The tool reads sample API responses, finds sensitive details
+that were exposed by accident, labels each one by type and severity, hides the real
+values, and puts the results into a short report with advice on how to fix them. It is written
+for our own team, for the evaluators, and for anyone who wants to test or extend the
+prototype later.
+
+1.2 Scope
+APIs pass data between apps and services all day long. When one is set up badly, its
+responses can carry email addresses, phone numbers, passwords, access tokens or
+internal system details that nobody meant to share. That is a privacy problem, and it can
+hand an attacker an easy way in. Developers need a simple check they can run on a
+response before it goes live.
+This project builds that check as a working prototype. It will:
+- load sample API responses from JSON or text files
+- find emails, phone numbers and likely secrets or tokens using regular expressions and
+custom rules, with Presidio as an optional extra
+- classify every finding by type and severity
+- mask the sensitive values wherever they would otherwise be shown
+- explain the risk behind each finding and suggest a fix
+- produce a summary report
+
+It will not watch live network traffic, call real APIs, repair the API code by itself, or run as a
+multi-user web service. It also cannot promise zero false alarms or zero misses, so a
+person still needs to look over the results.
+
+1.3 Terms used in this document
+API: a way for programs to talk to each other and exchange data.
+JSON: the text format most APIs use to send data back and forth.
+PII: personal information that can point to a real person, such as a name, email address
+or phone number.
+Regex: a short pattern used to search text, for example the shape of an email address.
+JWT: a JSON Web Token, a common kind of login token.
+Presidio: Microsoft's open-source library for spotting personal data in text.
+Finding: one place where the tool spotted sensitive data.
+Rule: a detection pattern together with its type, severity, risk note and suggested fix.
+Masking: replacing all or part of a value so it can no longer be read.
+
+1.4 References
+- Problem statement T1-PS7, Sensitive Data Leak Detector for APIs
+- OWASP API Security Top 10 (the parts on excessive data exposure and security
+misconfiguration)
+- Python documentation for the re and json modules
+- Microsoft Presidio documentation
+
+1.5 How the rest of this document is organised
+Section 2 puts the tool in context. Section 3 lists the functional requirements, and Section
+4 covers inputs and outputs. Section 5 sets the quality targets. Section 6 explains the
+detection rules and how severity is decided, Section 7 describes the data and the report,
+Section 8 gives the test plan, and Section 9 links everything back to the problem
+statement.
+
+2. Overall Description
+2.1 Where the tool fits
+The detector is a standalone tool that runs offline on the developer's own machine. It is a
+Python package with two ways to use it: a command-line tool and a Jupyter Notebook. In a
+normal workflow it sits between building an API and releasing it, as a quick security check.
+Every scan follows the same path:
+1. Load the input files or folder.
+2. Read the JSON structure, or the plain text if it is not JSON.
+3. Run the detection rules, built-in and custom.
+4. Classify each finding by type and severity.
+5. Mask the value.
+6. Attach a risk explanation and a suggested fix.
+7. Write the summary report.
+
+2.2 Who will use it
+- API developers, who want to check their own responses and get fix advice.
+- Security analysts and testers, who want findings sorted by severity and a report they
+can export.
+- QA and DevOps engineers, who may run it in a pipeline and need plain output and an
+exit code.
+- Evaluators and students, who want a clear demo notebook and repeatable results.
+
+2.3 Operating environment
+The tool runs on Python 3.9 or later on Windows, Linux or macOS. The Jupyter Notebook
+needs Jupyter or JupyterLab. Presidio is optional, and if it is used it needs the presidio-
+analyzer package plus a spaCy language model. No internet connection is needed while
+scanning.
+
+2.4 Design constraints
+- The tool is written in Python and uses JSON parsing, regular expressions and custom rules.
+- It has to work fully without Presidio.
+- Raw sensitive values must never appear in reports, logs or console output.
+- It only reads files that the user supplies.
+
+2.5 Assumptions and dependencies
+- Input files are UTF-8 text. If a JSON file is broken, the tool scans it as plain text instead
+of stopping.
+- The sample responses are test data or cleaned-up data, but the tool still avoids saving
+raw values anywhere.
+- The core tool needs only the Python standard library (re, json, argparse, pathlib,
+csv, logging). The optional extras are presidio-analyzer, presidio-anonymizer,
+pandas and jinja2.
+
+3. Functional Requirements
+Every requirement is tagged must, should or optional. Must items are what the prototype
+needs in order to count as working, should items make it clearly better, and optional items
+are extras if time allows.
+
+3.1 Loading input
+FR-1.1 Load a single .json or .txt file from a given path. (must)
+FR-1.2 Load every supported file in a folder, with an option to go through subfolders. (should)
+FR-1.3 Accept response text passed in as a string, mainly for use in the notebook. (should)
+FR-1.4 Check that a file exists, can be read and is a supported type, and show a clear
+error if it is not. (must)
+FR-1.5 Handle files that hold several responses, such as a JSON array or JSON Lines. (should)
+FR-1.6 Cope with large files without reading them over and over. (optional)
+
+3.2 Parsing
+FR-2.1 Parse JSON and walk through nested objects and arrays. (must)
+FR-2.2 Record the path and field name of every value, for example
+data.users[2].email . (must)
+FR-2.3 Scan plain text line by line and record the line number. (must)
+FR-2.4 If JSON parsing fails, log a warning and scan the content as plain text. (must)
+FR-2.5 Look inside string values that hold embedded JSON, headers or URLs, for
+example a token in a query string. (optional)
+
+3.3 Detection
+FR-3.1 Detect email addresses with a regex. (must)
+FR-3.2 Detect phone numbers in common formats, including Indian (+91) and
+international numbers. (must)
+FR-3.3 Detect likely secrets and tokens: API keys, bearer tokens, JWTs, cloud access
+keys, private key blocks and passwords. (must)
+FR-3.4 Flag values stored under sensitive field names such as password, secret,
+api_key, token or ssn, even when the value matches no known pattern. (must)
+FR-3.5 Detect other sensitive data: credit card numbers (checked with the Luhn test),
+government IDs such as Aadhaar and PAN, internal IP addresses, database connection
+strings, and internal file paths or stack traces. (should)
+FR-3.6 Load custom rules from a YAML or JSON file with no code changes. (must)
+FR-3.7 Let each rule be turned on or off. (should)
+FR-3.8 Use Presidio, when it is installed and enabled, to catch extra personal data such
+as names and locations. (optional)
+FR-3.9 Cut down false alarms with validation (the Luhn check, length and entropy
+checks for secrets) and an allow-list of known safe values such as
+example@example.com . (should)
+FR-3.10 When several rules match the same value, report it once, using the most severe
+match. (should)
+
+3.4 Classification
+FR-4.1 Give each finding a type such as Contact PII, Credential, Token, Financial,
+Government ID or Internal Information. (must)
+FR-4.2 Give each finding a severity of Critical, High, Medium or Low, following the rule
+and the table in Section 6.2. (must)
+FR-4.3 Raise the severity when context calls for it, for example a token sitting next to a
+field named admin_token . (optional)
+FR-4.4 Work out an overall risk rating for each file and for the whole scan. (should)
+FR-4.5 Give each finding a confidence level of High, Medium or Low. (should)
+
+3.5 Masking
+FR-5.1 Mask every detected value in every output. Raw values must never reach a
+report or a log. (must)
+FR-5.2 Mask according to type. Emails keep the first letter and the domain ending
+(j***@e*****.com), phone numbers keep only the last few digits (+91-*****-**210),
+cards show only the last four (****-****-****-1111), and secrets keep the first two
+to four characters followed by ****. (must)
+FR-5.3 Let the user pick the masking style: partial, full or hash-based. (should)
+FR-5.4 Optionally save a masked copy of the input file with every finding replaced. (should)
+FR-5.5 Keep enough of each value, such as its length or its last digits, for a developer to
+find the problem without seeing the whole thing. (should)
+
+3.6 Risk explanation and advice
+FR-6.1 Give every finding a plain-language explanation of the risk, for example that an
+exposed token could let someone take over an account. (must)
+FR-6.2 Give every finding at least one fix, for example remove the field from the
+response, return only approved fields, rotate the exposed secret, hash passwords, or
+tokenize card numbers. (must)
+FR-6.3 Store the risk and advice text with the rule, so custom rules can carry their own. (should)
+FR-6.4 Point to relevant standards where they apply, such as the OWASP API Security
+Top 10, GDPR or PCI-DSS. (optional)
+
+3.7 Reporting
+FR-7.1 Produce a summary report with the scan date and time, files scanned, total
+findings, counts by type and severity, the overall risk and the top recommendations. (must)
+FR-7.2 Include a detailed table of findings with file, location (JSON path or line
+number), type, severity, masked value, risk and fix. (must)
+FR-7.3 Show the report in the console, or as formatted tables in the notebook. (must)
+FR-7.4 Export the report to at least two of JSON, CSV, Markdown and HTML. (must)
+FR-7.5 Include simple charts of findings by severity and by type in the notebook or the
+HTML report. (optional)
+FR-7.6 State clearly in the report that findings are possible leaks and need human
+review. (should)
+
+3.8 Interfaces and operation
+FR-8.1 Provide a command-line tool, for example leakdetect scan <path> --rules
+rules.yaml --format md --output report.md . (must)
+FR-8.2 Provide a Jupyter Notebook that walks through loading, detection, masking and
+reporting. (must)
+FR-8.3 Support command-line options for a minimum severity, output format, masking
+style, recursive scanning and turning Presidio on. (should)
+FR-8.4 Return a non-zero exit code when findings at or above a chosen severity exist,
+so a CI job can fail on them. (optional)
+FR-8.5 Ship sample API responses, both clean and leaky, for demos and testing. (must)
+
+4. Interfaces
+4.1 User interfaces
+The command-line tool prints a short summary table and supports --help. The notebook
+is laid out as a series of steps: load the files, run the scan, look at the findings, look at the
+masked output, and export the report. Findings are shown in a table.
+
+4.2 Software interfaces
+- Python json to read the input
+- Python re for pattern matching
+- A YAML or JSON loader for the custom rule files
+- Microsoft Presidio (optional) for entity-based detection of personal data
+- pandas (optional) for tables in the notebook
+
+4.3 Hardware interfaces
+Nothing special is needed beyond a computer that can run Python.
+
+4.4 File formats
+Input: .json, .jsonl, .txt, .log
+Rules: .yaml or .json
+Output: .json, .csv, .md, .html, plus an optional masked copy of the input
+
+5. Quality Requirements
+- Security (NFR-1). Raw sensitive values are never stored, printed or exported. Masking
+happens right after detection, before anything is shown or logged.
+- Performance (NFR-2). A 5 MB JSON file should scan in under 10 seconds on an
+ordinary laptop using the built-in rules.
+- Accuracy (NFR-3). On our labelled test set the tool should find at least 90% of the
+planted leaks and at least 80% of what it flags should be a real leak.
+- Usability (NFR-4). A new user should be able to run a first scan within 5 minutes of
+opening the README. Error messages should say what went wrong and what to do next.
+- Reliability (NFR-5). Malformed, empty or very large input must not crash the tool. It
+reports the problem and carries on with the remaining files.
+- Extensibility (NFR-6). A new detection rule can be added through configuration alone.
+The detector, masker and reporter are separate modules.
+- Portability (NFR-7). It runs on Windows, Linux and macOS with Python 3.9 or later, and
+works offline.
+- Maintainability (NFR-8). The code follows PEP 8, has docstrings, and has unit tests
+covering at least 70% of it.
+- Privacy (NFR-9). Everything is processed locally. No data is sent to any outside service.
+- Repeatability (NFR-10). The same input and the same rules always give the same
+findings and the same report content.
+
+6. Detection Rules and Severity
+6.1 Built-in rules
+Rule          Type             What it looks for                                                 Severity
+R-EMAIL       Contact PII      Anything shaped like name@domain.tld, found with a regex         Medium
+R-PHONE       Contact PII      Numbers with 10 to 13 digits in common formats (+91, Indian mobiles 6-9) Medium
+R-PASSWORD    Credential       Non-empty value under password/passwd/pwd, bcrypt hashes ($2b$)   Critical
+R-APIKEY      Secret           Values under api_key, secret, client_secret, or entropy >= 3.2    High
+R-JWT         Token            Three dot-separated parts starting with eyJ                      High
+R-BEARER      Token            The word Bearer followed by a long token                          High
+R-AWS         Secret           AWS access key IDs starting with AKIA                             Critical
+R-PRIVKEY     Secret           PEM private key header line                                       Critical
+R-CARD        Financial        13 to 19 digit numbers that pass the Luhn check                   Critical
+R-AADHAAR     Government ID    12 digits, groups of 4, starting with 2-9                         High
+R-PAN         Government ID    Five letters, four digits, then one letter (e.g. ABCDE1234F)      High
+R-DBCONN      Internal info    Connection strings such as mongodb:// or jdbc:                    Critical
+R-IP          Internal info    Private IPv4 ranges (10.x, 172.16-31.x, 192.168.x)               Low
+R-PATH        Internal info    Server file paths and stack traces (C:\, /var/, Traceback)        Low to Medium
+R-NAME        Personal data    Person names found by Presidio (optional)                         Low
+
+6.2 How severity is decided
+- Critical: could lead straight to a hacked account, system or payment. Examples: plaintext
+passwords, private keys, AWS keys, card numbers, database connection strings.
+- High: gives someone a way to get in or pass themselves off as another person. Examples:
+API keys, JWTs, bearer tokens, Aadhaar, PAN numbers.
+- Medium: exposes private details that help with phishing or profiling. Examples: email
+addresses and phone numbers.
+- Low: helps an attacker learn about the system but does little harm alone. Examples:
+internal IPs, file paths, and names with no other context.
+
+6.3 Writing a custom rule
+A custom rule is a short block in the rules file:
+```yaml
+- id: R-EMP-ID
+  name: Employee ID
+  type: Internal Information
+  pattern: "EMP-\\d{6}"
+  severity: Medium
+  confidence: High
+  risk: "Exposes internal identifiers that help attackers target staff."
+  recommendation: "Remove internal IDs from public responses or replace them with opaque references."
+  enabled: true
+```
+
+7. Data and Report
+7.1 What a finding contains
+Every finding is stored as one record with these fields: a finding ID, the file name, the
+location (a JSON path or a line number), the rule that matched, the type, the severity, the
+confidence, the masked value, the risk explanation and the recommended fix. The original
+value is deliberately not one of the fields.
+
+7.2 Report layout
+1. Header with the tool name and version, scan time, input paths and the rule set used.
+2. Executive summary with total files, total findings and the overall risk rating.
+3. Counts by severity and by type.
+4. Detailed findings, sorted by severity and then by file.
+5. Risk explanations, grouped by finding type.
+6. Recommended fixes, in order of priority.
+7. A note that the results are automatic and need a person to verify them.
+
+7.3 A small example
+Input:
+{
+  "user": { "email": "asha.k@mailbox.test", "phone": "+91 98765 43210" },
+  "auth": { "password": "S3cret!2024", "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.c2lnbmF0dXJl" }
+}
+
+Report:
+Location       Type          Severity   Masked value       Suggested fix
+user.email     Contact PII   Medium     a***@m******.test  Return only fields client needs
+user.phone     Contact PII   Medium     +91 *****-**210    Leave out or mask number
+auth.password  Credential    Critical   S3****             Never send passwords or hashes
+auth.token     Token         High       eyJh****           Do not echo tokens back; rotate if exposed
+
+8. Test Plan
+- TC-01: Load a valid JSON file -> Parsed and every field visited
+- TC-02: Load a malformed JSON file -> Warning logged, scanned as plain text, no crash
+- TC-03: Missing or unsupported file -> Clear error, other files still scanned
+- TC-04: Scan email addresses -> Found, rated Medium, masked
+- TC-05: Scan phone numbers in several formats -> Valid found, 10-digit IDs ruled out
+- TC-06: Scan JWT, bearer token, API key -> Rated High, masked, rotate advice
+- TC-07: Scan field named password with value -> Critical finding even with no pattern match
+- TC-08: Scan one valid and one invalid card -> Only valid (Luhn) flagged
+- TC-09: Scan nested JSON with arrays -> Correct canonical JSON paths reported
+- TC-10: Scan a clean response -> Zero findings, low risk
+- TC-11: Add custom rule in YAML -> New rule fires with no code change
+- TC-12: Check outputs for raw values -> None appear in console, report, or logs
+- TC-13: Export to JSON, CSV, Markdown -> Files created and match console summary
+- TC-14: Set a minimum severity -> Only findings at or above shown
+- TC-15: Run with Presidio on and off -> Works both ways, extra entities only when on
+- TC-16: Scan file ~5 MB -> Finishes within performance target (<10s)
+- TC-17: Scan allow-listed value (test@example.com) -> Left out of results
+
+9. Link to Problem Statement
+Maps all items directly back to SRS Section 8 acceptance criteria.
+
+10. Project Structure
+leak_detector/
+├── leakdetect/
+│   ├── loader.py
+│   ├── parser.py
+│   ├── detector.py
+│   ├── classifier.py
+│   ├── masker.py
+│   ├── advisor.py
+│   ├── reporter.py
+│   └── cli.py
+├── rules/default_rules.yaml
+├── samples/
+├── notebooks/demo.ipynb
+├── tests/
+└── README.md
+
+11. Risks and Limitations
+- Regex can raise false alarms or miss disguised secrets; validation, entropy, and allow-lists mitigate this.
+- Presidio is optional to avoid slow startup and heavy dependencies.
+- Static samples cannot verify whether a secret is actively live.
+- Results require human verification.
