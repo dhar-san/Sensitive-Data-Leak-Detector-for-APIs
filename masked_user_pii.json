@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "data": {
+    "users": [
+      {
+        "id": "usr_9011",
+        "name": "Jane Doe",
+        "email": "j***@e*****.io",
+        "phone": "+91-*****-**210",
+        "contact_backup": "*****-**789",
+        "pan": "AB*****F",
+        "aadhaar": "****-****-0123",
+        "metadata": {
+          "allowlisted_contact": "test@example.com"
+        }
+      },
+      {
+        "id": "usr_9012",
+        "name": "Aarav Sharma",
+        "email": "a***@c*****.in",
+        "phone": "+91-*****-**109",
+        "pan": "BN*****Q",
+        "aadhaar": "****-****-1098"
+      }
+    ]
+  }
+}

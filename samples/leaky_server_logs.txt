@@ -1,0 +1,10 @@
+[2026-10-10 09:15:22] INFO  server.main: Starting API service on 10.0.4.15:8080 (cluster internal 192.168.1.100)
+[2026-10-10 09:15:23] INFO  db.connect: Connecting to mongodb://admin:P@ssw0rd99@10.0.8.21:27017/prod_customers?authSource=admin
+[2026-10-10 09:15:24] INFO  cache.connect: Redis client initialized at redis://default:red1sP@ss!@172.16.50.4:6379/0
+[2026-10-10 09:16:01] ERROR server.dispatch: Unhandled exception during payment settlement at C:\deployments\prod-api\services\payment.py
+Traceback (most recent call last):
+  File "/var/log/api-gateway/worker.py", line 142, in process_job
+    res = client.post("https://payment.internal/settle", headers={"X-Internal-Token": "sec_live_abcdef1234567890"})
+  File "/var/log/api-gateway/client.py", line 88, in post
+    raise ConnectionResetError("Remote server 192.168.10.50 dropped packet")
+ConnectionResetError: Remote server 192.168.10.50 dropped packet

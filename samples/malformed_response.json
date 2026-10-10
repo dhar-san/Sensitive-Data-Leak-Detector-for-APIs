@@ -1,0 +1,7 @@
+{
+  "status": "error",
+  "detail": "Syntax error occurred",
+  "leaked_email": "developer.debug@internal.corp",
+  "aws_token": "AKIAIOSFODNN7EXAMPLE",
+  "unclosed_array": [
+    "item1", "item2"

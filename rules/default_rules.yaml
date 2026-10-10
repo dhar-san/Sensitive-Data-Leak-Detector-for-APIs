@@ -1,0 +1,212 @@
+# Default Detection Rules for Sensitive Data Leak Detector for APIs (T1-PS7)
+# Built-in rules specification according to SRS Section 6.1
+
+allow_list:
+  - "example@example.com"
+  - "test@example.com"
+  - "user@example.com"
+  - "noreply@example.com"
+  - "0000-0000-0000-0000"
+  - "1234-5678-9012-3456"
+  - "localhost"
+  - "127.0.0.1"
+
+rules:
+  - id: R-EMAIL
+    name: Email Address
+    type: Contact PII
+    pattern: '\b[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\b'
+    severity: Medium
+    confidence: High
+    enabled: true
+    standards:
+      - GDPR Article 32
+      - OWASP API3:2023 Broken Object Property Level Authorization
+    risk: "Exposes private email addresses that can be exploited for phishing, social engineering, or spam."
+    recommendation: "Return only necessary fields; exclude or mask email addresses in public responses."
+
+  - id: R-PHONE
+    name: Phone Number
+    type: Contact PII
+    pattern: '(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)|(?<!\d)(?:\+\d{1,3}[\s-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}(?!\d)'
+    severity: Medium
+    confidence: Medium
+    enabled: true
+    standards:
+      - GDPR Article 32
+      - OWASP API3:2023 Broken Object Property Level Authorization
+    risk: "Exposes personal mobile or landline numbers, enabling smishing attacks, profiling, or privacy violations."
+    recommendation: "Mask phone numbers (+91-*****-**210) or restrict phone field exposure to authenticated account owners."
+
+  - id: R-PASSWORD
+    name: Password or Hash
+    type: Credential
+    field_match: '^(?:.*password.*|.*passwd.*|.*pwd.*)$'
+    pattern: '(?:\$2[abxy]?\$\d{2}\$[A-Za-z0-9./]{53})'
+    severity: Critical
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API2:2023 Broken Authentication
+      - PCI-DSS Requirement 8.3
+      - CWE-259 Hard-coded Password
+    risk: "Plaintext passwords or password hashes directly expose user credentials, leading to total account takeover."
+    recommendation: "Never return passwords or hashes in API responses under any circumstances. Strip credential fields."
+
+  - id: R-APIKEY
+    name: API Key or Secret
+    type: Secret
+    field_match: '^(?:.*api[_-]?key.*|.*apikey.*|.*client[_-]?secret.*|.*auth[_-]?key.*|.*app[_-]?secret.*)$'
+    pattern: '(?<![A-Za-z0-9_])[A-Za-z0-9_-]{24,}(?![A-Za-z0-9_])'
+    min_length: 20
+    min_entropy: 3.2
+    severity: High
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API8:2023 Security Misconfiguration
+      - CWE-798 Hard-coded Credentials
+    risk: "Leaked API keys grant unauthorized programmatic access to services, third-party integrations, and data stores."
+    recommendation: "Rotate the exposed API key immediately and store secrets in an environment vault."
+
+  - id: R-JWT
+    name: JSON Web Token (JWT)
+    type: Token
+    pattern: '\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b'
+    severity: High
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API2:2023 Broken Authentication
+      - RFC 7519
+    risk: "Exposed JWT tokens can allow adversaries to impersonate authenticated users or hijack active sessions."
+    recommendation: "Do not echo tokens back in responses unnecessarily; rotate compromised tokens and enforce short expiry."
+
+  - id: R-BEARER
+    name: Bearer Token
+    type: Token
+    pattern: '\bBearer\s+[A-Za-z0-9._~+/-]{20,}\b'
+    severity: High
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API2:2023 Broken Authentication
+      - RFC 6750
+    risk: "Exposes active bearer authorization tokens, allowing session hijacking and unauthorized API consumption."
+    recommendation: "Remove authorization headers and bearer tokens from outgoing response bodies and logs."
+
+  - id: R-AWS
+    name: AWS Access Key ID
+    type: Secret
+    pattern: '\b(?:AKIA|ASIA)[0-9A-Z]{16}\b'
+    severity: Critical
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API8:2023 Security Misconfiguration
+      - CIS AWS Foundations Benchmark
+    risk: "Exposed AWS access keys allow attackers to compromise cloud infrastructure, access S3 buckets, and incur cloud costs."
+    recommendation: "Revoke and rotate the exposed AWS key immediately in IAM; review CloudTrail logs for unauthorized actions."
+
+  - id: R-PRIVKEY
+    name: Private Key Block
+    type: Secret
+    pattern: '-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----'
+    severity: Critical
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API8:2023 Security Misconfiguration
+      - PCI-DSS Requirement 3.5
+    risk: "Private cryptographic keys compromise TLS encryption, code signatures, or SSH server access."
+    recommendation: "Remove private key data immediately; regenerate key pairs and reissue affected certificates."
+
+  - id: R-CARD
+    name: Credit/Debit Card Number
+    type: Financial
+    pattern: '(?<!\d)(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11}|(?:\d{4}[ -]?){3}\d{4})(?!\d)'
+    luhn_validation: true
+    severity: Critical
+    confidence: High
+    enabled: true
+    standards:
+      - PCI-DSS Requirement 3.4
+      - OWASP API3:2023 Broken Object Property Level Authorization
+    risk: "Cardholder data leaks lead directly to fraudulent charges, payment compromise, and severe PCI-DSS non-compliance fines."
+    recommendation: "Never return raw Primary Account Numbers (PAN); mask as ****-****-****-1111 or use tokenization services."
+
+  - id: R-AADHAAR
+    name: Indian Aadhaar Number
+    type: Government ID
+    pattern: '(?<!\d)[2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4}(?![\s-]?\d)'
+    severity: High
+    confidence: Medium
+    enabled: true
+    standards:
+      - Aadhaar Act 2016
+      - Indian Digital Personal Data Protection Act (DPDPA 2023)
+    risk: "Leaked Aadhaar numbers violate statutory privacy laws and expose individuals to identity theft and SIM fraud."
+    recommendation: "Mask Aadhaar numbers to show only the last 4 digits (****-****-1234) or remove from public payloads."
+
+  - id: R-PAN
+    name: Indian PAN Card Number
+    type: Government ID
+    pattern: '(?<![A-Za-z0-9])[A-Z]{5}[0-9]{4}[A-Z](?![A-Za-z0-9])'
+    severity: High
+    confidence: High
+    enabled: true
+    standards:
+      - Indian Income Tax Act
+      - Indian DPDPA 2023
+    risk: "Permanent Account Numbers expose citizen financial identities and facilitate fraudulent tax filings or credit checks."
+    recommendation: "Do not expose national tax identifiers in client-facing APIs without strict authorization and masking."
+
+  - id: R-DBCONN
+    name: Database Connection String
+    type: Internal info
+    pattern: '(?:mongodb(?:\+srv)?|jdbc:[a-z]+|postgres(?:ql)?|mysql|redis|sqlite|oracle|mssql):\/\/[^\s"\''<>]+'
+    severity: Critical
+    confidence: High
+    enabled: true
+    standards:
+      - OWASP API8:2023 Security Misconfiguration
+      - CWE-200 Information Exposure
+    risk: "Database URIs expose internal hostnames, ports, and frequently plaintext database credentials to attackers."
+    recommendation: "Ensure connection strings reside strictly in server environment configs and are never returned in responses or error traces."
+
+  - id: R-IP
+    name: Internal IPv4 Address
+    type: Internal info
+    pattern: '(?<!\d)(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})(?!\d)'
+    severity: Low
+    confidence: High
+    enabled: true
+    standards:
+      - RFC 1918 Private Address Allocation
+      - OWASP API8:2023 Security Misconfiguration
+    risk: "Private IP addresses map internal network topology, aiding lateral movement if an attacker gains initial network access."
+    recommendation: "Sanitize internal hostnames and IP addresses from responses and diagnostic metadata."
+
+  - id: R-PATH
+    name: Server File Path or Stack Trace
+    type: Internal info
+    pattern: '(?:[A-Za-z]:\\[\w.-]+\\[\w.-]+|(?:/(?:var|etc|usr|opt|home|root|app|srv)/[\w.-]+)|Traceback \(most recent call last\):)'
+    severity: Medium
+    confidence: Medium
+    enabled: true
+    standards:
+      - OWASP API8:2023 Security Misconfiguration
+      - CWE-209 Stack Trace Exposure
+    risk: "Server paths and stack traces reveal underlying directory structures, runtime environments, and potentially vulnerable libraries."
+    recommendation: "Disable detailed error messages in production APIs and return standardized generic error representations."
+
+  - id: R-NAME
+    name: Personal Name
+    type: Personal data
+    severity: Low
+    confidence: Low
+    enabled: false
+    standards:
+      - GDPR Article 4
+    risk: "Exposes individual personal names which may violate privacy frameworks when combined with other identifiers."
+    recommendation: "Expose personal names only when strictly required by the client workflow."

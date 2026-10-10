@@ -1,0 +1,8 @@
+# Core Web & Detection Dependencies
+Flask>=3.0.0
+PyYAML>=6.0.1
+pytest>=8.0.0
+requests>=2.31.0
+
+# Optional Presidio Integration (FR-3.8)
+# presidio-analyzer>=2.2.0

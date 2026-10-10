@@ -1,0 +1,18 @@
+{
+  "api_version": "v2.4",
+  "auth_session": {
+    "session_id": "sess_89412a8f",
+    "password": "SuperSecretPassword!2026",
+    "password_hash": "$2b$12$e8YlQk8kO5hS8PjI5G.rOu8X4bZ0k6dE5aB2c7d9eF1g3h5i7j9kL",
+    "api_key": "sec_live_99d821fa89b216ce704982a17f6e392b",
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFsaWNlIFNtaXRoIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+    "authorization_header": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ.u1t1nQx2m8Y4l6b9P1a8",
+    "cloud_credentials": {
+      "aws_access_key": "AKIAIOSFODNN7EXAMPLE",
+      "aws_region": "us-east-1"
+    },
+    "tls": {
+      "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0Y3...\n-----END RSA PRIVATE KEY-----"
+    }
+  }
+}

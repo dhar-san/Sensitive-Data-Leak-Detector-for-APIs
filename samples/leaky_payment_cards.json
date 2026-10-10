@@ -1,0 +1,13 @@
+{
+  "transaction_id": "tx_99812401",
+  "status": "APPROVED",
+  "payment_method": {
+    "type": "credit_card",
+    "valid_card_number": "4111 1111 1111 1111",
+    "invalid_card_test": "4111 1111 1111 1112",
+    "dummy_card_mask": "0000-0000-0000-0000",
+    "billing_country": "US",
+    "currency": "USD",
+    "amount": 149.99
+  }
+}

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Sensitive Data Leak Detector (T1-PS7)</title>
+  <!-- Google Fonts & FontAwesome & Chart.js -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+</head>
+<body>
+  <!-- App Container -->
+  <div class="app-layout">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-shield">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <div class="brand-title">LeakDetect <span class="badge-tag">API v1.0</span></div>
+          <div class="brand-subtitle">Sensitive Data Leak Detector for APIs · Problem Statement T1-PS7</div>
+        </div>
+      </div>
+
+      <nav class="header-nav">
+        <button class="nav-tab active" data-target="tab-scanner"><i class="fa-solid fa-radar"></i> Scanner</button>
+        <button class="nav-tab" data-target="tab-dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
+        <button class="nav-tab" data-target="tab-sanitized"><i class="fa-solid fa-file-shield"></i> Masked Payload</button>
+        <button class="nav-tab" data-target="tab-rules"><i class="fa-solid fa-sliders"></i> Detection Rules</button>
+        <button class="nav-tab" data-target="tab-docs"><i class="fa-solid fa-book-bookmark"></i> SRS & API</button>
+      </nav>
+
+      <div class="header-actions">
+        <div class="status-indicator" id="engineStatusBadge">
+          <span class="status-dot"></span>
+          <span class="status-text">Engine Online</span>
+        </div>
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+
+      <!-- TAB 1: SCANNER -->
+      <section id="tab-scanner" class="tab-content active">
+        
+        <!-- Quick Samples Bar -->
+        <div class="panel-box sample-bar">
+          <div class="sample-label"><i class="fa-solid fa-bolt"></i> Quick Demo Presets:</div>
+          <div class="sample-buttons" id="sampleButtonsContainer">
+            <span class="loading-spinner">Loading sample payloads...</span>
+          </div>
+        </div>
+
+        <div class="scanner-grid">
+          <!-- Input Column -->
+          <div class="panel-box input-panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i class="fa-solid fa-code"></i> API Response Input
+                <span class="sub-pill" id="inputFormatBadge">Auto-Detect</span>
+              </div>
+              <div class="panel-controls">
+                <button class="btn-sm btn-ghost" id="clearInputBtn"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                <button class="btn-sm btn-ghost" id="formatJsonBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Prettify JSON</button>
+              </div>
+            </div>
+
+            <!-- Tabs: Paste vs File Upload -->
+            <div class="input-subnav">
+              <button class="subtab-btn active" data-subtarget="mode-paste"><i class="fa-solid fa-paste"></i> Paste Text / JSON</button>
+              <button class="subtab-btn" data-subtarget="mode-upload"><i class="fa-solid fa-cloud-arrow-up"></i> Upload File (.json, .jsonl, .txt, .log)</button>
+            </div>
+
+            <div id="mode-paste" class="subtab-content active">
+              <div class="textarea-wrapper">
+                <textarea id="rawPayloadInput" placeholder="Paste sample API response here (JSON, JSON Lines, or plaintext logs)..." spellcheck="false"></textarea>
+              </div>
+            </div>
+
+            <div id="mode-upload" class="subtab-content">
+              <div class="dropzone" id="fileDropzone">
+                <i class="fa-solid fa-file-arrow-up drop-icon"></i>
+                <div class="drop-text">Drag & drop API response files here or <span>browse</span></div>
+                <div class="drop-hint">Supported formats: .json, .jsonl, .txt, .log (Max 32MB)</div>
+                <input type="file" id="fileUploadInput" multiple accept=".json,.jsonl,.txt,.log" style="display:none">
+              </div>
+              <div id="selectedFilesList" class="file-chips-container"></div>
+            </div>
+
+            <!-- Scan Options Toolbar -->
+            <div class="scan-options-bar">
+              <div class="option-item">
+                <label for="maskingStyleSelect"><i class="fa-solid fa-mask"></i> Masking Style:</label>
+                <select id="maskingStyleSelect" class="form-select">
+                  <option value="partial" selected>Partial (j***@e*****.com, ****-1111)</option>
+                  <option value="full">Full (********)</option>
+                  <option value="hash">Hash-based ([sha256:...])</option>
+                </select>
+              </div>
+
+              <div class="option-item">
+                <label for="minSeveritySelect"><i class="fa-solid fa-filter"></i> Min Severity:</label>
+                <select id="minSeveritySelect" class="form-select">
+                  <option value="Low" selected>All (Low & Above)</option>
+                  <option value="Medium">Medium & Above</option>
+                  <option value="High">High & Above</option>
+                  <option value="Critical">Critical Only</option>
+                </select>
+              </div>
+
+              <div class="option-item toggle-item">
+                <label class="switch-label">
+                  <input type="checkbox" id="presidioCheckbox">
+                  <span class="slider"></span>
+                  <span class="switch-text">Presidio NER {% if not presidio_available %}<small>(Offline)</small>{% endif %}</span>
+                </label>
+              </div>
+
+              <button class="btn btn-primary" id="runScanBtn">
+                <i class="fa-solid fa-shield-virus"></i> Run Security Scan
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Scan Overview Column -->
+          <div class="panel-box summary-panel">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-heart-pulse"></i> Instant Health Assessment</div>
+              <div id="scanLatencyTag" class="latency-tag">Ready</div>
+            </div>
+
+            <div class="risk-card-hero" id="heroRiskCard">
+              <div class="shield-graphic shield-clean" id="heroShield">
+                <i class="fa-solid fa-shield-check"></i>
+              </div>
+              <div class="hero-info">
+                <div class="hero-label">RISK STATUS</div>
+                <div class="hero-risk-title" id="heroRiskTitle">No Scan Run Yet</div>
+                <div class="hero-risk-desc" id="heroRiskDesc">Paste a response or pick a preset above to inspect for leaked secrets.</div>
+              </div>
+              <div class="hero-score-dial">
+                <div class="dial-val" id="heroRiskScore">0</div>
+                <div class="dial-label">RISK INDEX</div>
+              </div>
+            </div>
+
+            <!-- Mini Counters -->
+            <div class="mini-kpis">
+              <div class="mini-kpi-card sev-crit">
+                <div class="kpi-num" id="kpiCritCount">0</div>
+                <div class="kpi-name">Critical</div>
+              </div>
+              <div class="mini-kpi-card sev-high">
+                <div class="kpi-num" id="kpiHighCount">0</div>
+                <div class="kpi-name">High</div>
+              </div>
+              <div class="mini-kpi-card sev-med">
+                <div class="kpi-num" id="kpiMedCount">0</div>
+                <div class="kpi-name">Medium</div>
+              </div>
+              <div class="mini-kpi-card sev-low">
+                <div class="kpi-num" id="kpiLowCount">0</div>
+                <div class="kpi-name">Low</div>
+              </div>
+            </div>
+
+            <!-- Top Advisory preview -->
+            <div class="quick-recs-box">
+              <div class="recs-title"><i class="fa-solid fa-triangle-exclamation"></i> Top Action Items:</div>
+              <ul class="recs-list" id="quickRecsList">
+                <li class="empty-rec">Awaiting scan execution...</li>
+              </ul>
+            </div>
+
+            <div class="quick-actions-footer">
+              <button class="btn btn-secondary" id="jumpToDashboardBtn"><i class="fa-solid fa-arrow-right"></i> Open Detailed Dashboard</button>
+              <button class="btn btn-secondary" id="jumpToMaskedBtn"><i class="fa-solid fa-eye"></i> View Masked Copy</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: DETAILED DASHBOARD -->
+      <section id="tab-dashboard" class="tab-content">
+        <!-- Top Metrics Row -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon bg-indigo"><i class="fa-solid fa-bug"></i></div>
+            <div class="metric-data">
+              <div class="metric-value" id="dashTotalFindings">0</div>
+              <div class="metric-title">Total Leaks Detected</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon bg-red"><i class="fa-solid fa-fire"></i></div>
+            <div class="metric-data">
+              <div class="metric-value" id="dashCriticalFindings">0</div>
+              <div class="metric-title">Critical Credentials</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon bg-orange"><i class="fa-solid fa-key"></i></div>
+            <div class="metric-data">
+              <div class="metric-value" id="dashHighFindings">0</div>
+              <div class="metric-title">High Tokens & Secrets</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon bg-yellow"><i class="fa-solid fa-address-card"></i></div>
+            <div class="metric-data">
+              <div class="metric-value" id="dashMediumFindings">0</div>
+              <div class="metric-title">Contact PII & Govt IDs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-row">
+          <div class="panel-box chart-card">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-chart-pie"></i> Severity Distribution</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="dashSevChart"></canvas>
+            </div>
+          </div>
+
+          <div class="panel-box chart-card">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-chart-column"></i> Findings by Category</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="dashTypeChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detailed Findings Table Panel -->
+        <div class="panel-box table-panel">
+          <div class="panel-header table-header">
+            <div class="panel-title"><i class="fa-solid fa-table-list"></i> Findings Registry (FR-7.2)</div>
+            
+            <div class="table-filters">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="tableSearchInput" placeholder="Filter by path, rule, or fix...">
+              </div>
+
+              <div class="filter-pills">
+                <button class="pill-btn active" data-filter="all">All</button>
+                <button class="pill-btn" data-filter="Critical">Critical</button>
+                <button class="pill-btn" data-filter="High">High</button>
+                <button class="pill-btn" data-filter="Medium">Medium</button>
+                <button class="pill-btn" data-filter="Low">Low</button>
+              </div>
+
+              <!-- Export buttons -->
+              <div class="export-dropdown">
+                <button class="btn-sm btn-primary" id="exportMenuBtn"><i class="fa-solid fa-download"></i> Export Report <i class="fa-solid fa-caret-down"></i></button>
+                <div class="dropdown-content" id="exportDropdownContent">
+                  <a href="#" data-format="html"><i class="fa-solid fa-file-code"></i> HTML Report (.html)</a>
+                  <a href="#" data-format="md"><i class="fa-solid fa-file-lines"></i> Markdown (.md)</a>
+                  <a href="#" data-format="csv"><i class="fa-solid fa-file-csv"></i> CSV Spreadsheet (.csv)</a>
+                  <a href="#" data-format="json"><i class="fa-solid fa-file-code"></i> JSON Data (.json)</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="findings-table" id="findingsTable">
+              <thead>
+                <tr>
+                  <th style="width: 70px;">ID</th>
+                  <th>Location (JSON Path / Line)</th>
+                  <th>Rule</th>
+                  <th>Category</th>
+                  <th>Severity</th>
+                  <th>Masked Value (FR-5.1)</th>
+                  <th>Remediation Fix</th>
+                  <th style="width: 50px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="findingsTableBody">
+                <tr>
+                  <td colspan="8" class="text-center empty-state">No scan findings to display. Run a scan from the Scanner tab.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer-note">
+            <i class="fa-solid fa-circle-info"></i> <strong>Disclaimer (FR-7.6):</strong> Findings represent automated detection of potential sensitive data exposure and require human verification before modifying production API responses.
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: SANITIZED / MASKED PAYLOAD VIEWER -->
+      <section id="tab-sanitized" class="tab-content">
+        <div class="panel-box">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i class="fa-solid fa-file-shield"></i> Sanitized Output Payload (FR-5.4)
+              <span class="sub-pill">Zero Raw Secrets</span>
+            </div>
+            <div class="panel-controls">
+              <button class="btn-sm btn-ghost" id="copyMaskedBtn"><i class="fa-solid fa-copy"></i> Copy Sanitized Text</button>
+              <button class="btn-sm btn-primary" id="downloadMaskedBtn"><i class="fa-solid fa-download"></i> Download Masked File</button>
+            </div>
+          </div>
+
+          <div class="code-viewer-container">
+            <pre><code id="maskedPayloadCodeBlock">// Sanitized payload with redacted sensitive values will render here after running a scan.</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: DETECTION RULES -->
+      <section id="tab-rules" class="tab-content">
+        <div class="rules-management-grid">
+          <!-- Active Rules Table -->
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-list-check"></i> Configured Rules (Built-in & Custom)</div>
+              <button class="btn-sm btn-primary" id="openAddRuleModalBtn"><i class="fa-solid fa-plus"></i> Add Custom Rule (FR-3.6)</button>
+            </div>
+
+            <div class="table-container">
+              <table class="findings-table">
+                <thead>
+                  <tr>
+                    <th>Rule ID</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Severity</th>
+                    <th>Pattern / Matcher</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="rulesTableBody">
+                  <!-- Populated via API -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Allow-List Panel -->
+          <div class="panel-box allowlist-panel">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-circle-check"></i> Active Allow-List (FR-3.9)</div>
+            </div>
+            <div class="allowlist-content">
+              <p class="text-muted">Values in this list are considered safe test data and will never trigger false positives (e.g. <code>test@example.com</code>, <code>0000-0000-0000-0000</code>):</p>
+              <div class="chips-list" id="allowListChips"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: SRS & API DOCS -->
+      <section id="tab-docs" class="tab-content">
+        <div class="docs-grid">
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-file-contract"></i> SRS Specification Mapping (T1-PS7)</div>
+            </div>
+            <div class="docs-body">
+              <p>This web application implements all requirements defined in the <strong>Sensitive Data Leak Detector for APIs Software Requirements Specification (SRS Version 1.0)</strong>:</p>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-1.x Loading</span>
+                <span>Supports <code>.json</code>, <code>.jsonl</code>, <code>.txt</code>, <code>.log</code> files, directory scanning, and inline payload strings.</span>
+              </div>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-2.x Parsing</span>
+                <span>Recursively traverses nested JSON structures, records exact paths (e.g. <code>data.users[0].email</code>), handles line numbers for text, and inspects embedded strings.</span>
+              </div>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-3.x Detection</span>
+                <span>Covers all 15 rules from Section 6.1: emails, phones (+91 & intl), passwords & hashes, API keys, JWTs, Bearer headers, AWS keys, PEM private keys, Luhn-validated credit cards, Aadhaar, PAN, DB URIs, and internal IPs.</span>
+              </div>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-4.x Classification</span>
+                <span>Assigns finding categories, severity tiers (Critical, High, Medium, Low), contextual escalation for admin roles, and calculates overall risk scores.</span>
+              </div>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-5.x Masking</span>
+                <span>Redacts all outputs according to type. Zero raw secrets are ever leaked or exported. Supports partial, full, and SHA-256 hash masking styles.</span>
+              </div>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-6.x Advisory</span>
+                <span>Provides plain-language risk explanations, actionable remediation steps, and maps to OWASP API Top 10 (2023), GDPR, and PCI-DSS.</span>
+              </div>
+
+              <div class="srs-item">
+                <span class="srs-tag req-must">FR-7.x Reporting</span>
+                <span>Generates executive summaries and exports across HTML (with interactive charts), Markdown, CSV, and JSON formats.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title"><i class="fa-solid fa-network-wired"></i> REST API Integration Guide</div>
+            </div>
+            <div class="docs-body">
+              <p>Integrate this detector directly into your CI/CD pipelines or pre-commit hooks via standard REST endpoints:</p>
+
+              <h4>1. Scan Payload String</h4>
+              <pre class="api-snippet"><code>curl -X POST http://localhost:5000/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{"text": "{\"user\": \"alice@company.com\", \"token\": \"eyJ...\"}", "masking_style": "partial"}'</code></pre>
+
+              <h4>2. Upload File to Scan</h4>
+              <pre class="api-snippet"><code>curl -X POST http://localhost:5000/api/scan-file \
+  -F "files=@samples/leaky_user_pii.json" \
+  -F "masking_style=partial" \
+  -F "min_severity=Medium"</code></pre>
+
+              <h4>3. CLI Tool Usage</h4>
+              <pre class="api-snippet"><code>python -m leakdetect.cli scan samples/leaky_auth_tokens.json \
+  --rules rules/default_rules.yaml \
+  --format html \
+  --output report.html \
+  --save-masked masked.json</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Modal: Finding Details Drawer -->
+  <div class="modal-backdrop" id="findingModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title" id="modalFindingTitle">Finding Details</div>
+        <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body" id="modalFindingBody">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Custom Rule -->
+  <div class="modal-backdrop" id="addRuleModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title"><i class="fa-solid fa-plus-circle"></i> Add Custom Detection Rule</div>
+        <button class="modal-close-btn" id="addRuleCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="addRuleForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Rule ID</label>
+              <input type="text" id="newRuleId" placeholder="e.g. R-EMP-ID" required>
+            </div>
+            <div class="form-group">
+              <label>Rule Name</label>
+              <input type="text" id="newRuleName" placeholder="e.g. Employee ID" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Category</label>
+              <select id="newRuleType" class="form-select">
+                <option value="Secret">Secret</option>
+                <option value="Contact PII">Contact PII</option>
+                <option value="Credential">Credential</option>
+                <option value="Token">Token</option>
+                <option value="Financial">Financial</option>
+                <option value="Government ID">Government ID</option>
+                <option value="Internal info">Internal info</option>
+                <option value="Personal data">Personal data</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Severity</label>
+              <select id="newRuleSeverity" class="form-select">
+                <option value="Critical">Critical</option>
+                <option value="High" selected>High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Regex Pattern (JavaScript/Python regex)</label>
+            <input type="text" id="newRulePattern" placeholder="e.g. EMP-\d{6}" required>
+          </div>
+
+          <div class="form-group">
+            <label>Risk Explanation</label>
+            <textarea id="newRuleRisk" rows="2" placeholder="e.g. Exposes internal employee identifiers which can be exploited."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Remediation Recommendation</label>
+            <textarea id="newRuleRec" rows="2" placeholder="e.g. Strip employee IDs from public responses or use opaque UUIDs."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelAddRuleBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Rule</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

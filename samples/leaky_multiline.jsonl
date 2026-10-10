@@ -1,0 +1,3 @@
+{"event": "login_attempt", "user": "alice@company.com", "phone": "+91-9876543210", "ip": "192.168.1.45", "success": true}
+{"event": "token_refresh", "user": "bob@security.org", "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2IifQ.abc123xyz789SECRET", "success": true}
+{"event": "system_status", "service": "indexer", "status": "nominal"}

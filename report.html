@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Sensitive Data Leak Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --critical: #ef4444;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #3b82f6;
+      --clean: #10b981;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 30px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .meta-tag {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    .kpi-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .kpi-val {
+      font-size: 32px;
+      font-weight: 700;
+      margin: 10px 0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-Critical { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+    .badge-High { background: rgba(249, 115, 22, 0.2); color: #fb923c; border: 1px solid #f97316; }
+    .badge-Medium { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
+    .badge-Low { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
+    .charts-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .chart-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    th {
+      background: rgba(15, 23, 42, 0.6);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+    .code-pill {
+      font-family: monospace;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+    .disclaimer {
+      margin-top: 30px;
+      padding: 15px;
+      border-left: 4px solid #3b82f6;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    @media (max-width: 768px) {
+      .charts-container { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title">🛡️ API Sensitive Data Leak Report</div>
+        <div class="meta-tag">Generated: 2026-10-10 04:20:06 UTC | Tool: Sensitive Data Leak Detector v1.0.0</div>
+      </div>
+      <div>
+        <span class="badge badge-High">HIGH RISK</span>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-title">Overall Risk Score</div>
+        <div class="kpi-val" style="color: #ef4444">100 / 100</div>
+        <div class="meta-tag">HIGH RISK: Authentication tokens, API keys, or Government IDs detected.</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Total Findings</div>
+        <div class="kpi-val">9</div>
+        <div class="meta-tag">Across 1 file(s)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Critical & High</div>
+        <div class="kpi-val" style="color: #ef4444">4</div>
+        <div class="meta-tag">Requires Immediate Rotation / Fix</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Medium & Low</div>
+        <div class="kpi-val" style="color: #eab308">5</div>
+        <div class="meta-tag">PII & Internal Topology Leaks</div>
+      </div>
+    </div>
+
+    <div class="charts-container">
+      <div class="chart-box">
+        <h4 style="margin-top:0;">Findings by Severity</h4>
+        <canvas id="sevChart" height="200"></canvas>
+      </div>
+      <div class="chart-box">
+        <h4 style="margin-top:0;">Findings by Category</h4>
+        <canvas id="typeChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <h3>Detailed Security Findings</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Location</th>
+          <th>Rule</th>
+          <th>Category</th>
+          <th>Severity</th>
+          <th>Masked Value</th>
+          <th>Suggested Fix</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="code-pill">FND-0001</span></td>
+          <td><span class="code-pill">data.users[0].email</span></td>
+          <td>Email Address</td>
+          <td>Contact PII</td>
+          <td><span class="badge badge-Medium">Medium</span></td>
+          <td><span class="code-pill">j***@e*****.io</span></td>
+          <td>Return only necessary fields; exclude or mask email addresses in public responses.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0002</span></td>
+          <td><span class="code-pill">data.users[0].phone</span></td>
+          <td>Phone Number</td>
+          <td>Contact PII</td>
+          <td><span class="badge badge-Medium">Medium</span></td>
+          <td><span class="code-pill">+91-*****-**210</span></td>
+          <td>Mask phone numbers (+91-*****-**210) or restrict phone field exposure to authenticated account owners.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0003</span></td>
+          <td><span class="code-pill">data.users[0].contact_backup</span></td>
+          <td>Phone Number</td>
+          <td>Contact PII</td>
+          <td><span class="badge badge-Medium">Medium</span></td>
+          <td><span class="code-pill">*****-**789</span></td>
+          <td>Mask phone numbers (+91-*****-**210) or restrict phone field exposure to authenticated account owners.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0004</span></td>
+          <td><span class="code-pill">data.users[0].pan</span></td>
+          <td>Indian PAN Card Number</td>
+          <td>Government ID</td>
+          <td><span class="badge badge-High">High</span></td>
+          <td><span class="code-pill">AB*****F</span></td>
+          <td>Do not expose national tax identifiers in client-facing APIs without strict authorization and masking.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0005</span></td>
+          <td><span class="code-pill">data.users[0].aadhaar</span></td>
+          <td>Indian Aadhaar Number</td>
+          <td>Government ID</td>
+          <td><span class="badge badge-High">High</span></td>
+          <td><span class="code-pill">****-****-0123</span></td>
+          <td>Mask Aadhaar numbers to show only the last 4 digits (****-****-1234) or remove from public payloads.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0006</span></td>
+          <td><span class="code-pill">data.users[1].email</span></td>
+          <td>Email Address</td>
+          <td>Contact PII</td>
+          <td><span class="badge badge-Medium">Medium</span></td>
+          <td><span class="code-pill">a***@c*****.in</span></td>
+          <td>Return only necessary fields; exclude or mask email addresses in public responses.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0007</span></td>
+          <td><span class="code-pill">data.users[1].phone</span></td>
+          <td>Phone Number</td>
+          <td>Contact PII</td>
+          <td><span class="badge badge-Medium">Medium</span></td>
+          <td><span class="code-pill">+91-*****-**109</span></td>
+          <td>Mask phone numbers (+91-*****-**210) or restrict phone field exposure to authenticated account owners.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0008</span></td>
+          <td><span class="code-pill">data.users[1].pan</span></td>
+          <td>Indian PAN Card Number</td>
+          <td>Government ID</td>
+          <td><span class="badge badge-High">High</span></td>
+          <td><span class="code-pill">BN*****Q</span></td>
+          <td>Do not expose national tax identifiers in client-facing APIs without strict authorization and masking.</td>
+        </tr><tr>
+          <td><span class="code-pill">FND-0009</span></td>
+          <td><span class="code-pill">data.users[1].aadhaar</span></td>
+          <td>Indian Aadhaar Number</td>
+          <td>Government ID</td>
+          <td><span class="badge badge-High">High</span></td>
+          <td><span class="code-pill">****-****-1098</span></td>
+          <td>Mask Aadhaar numbers to show only the last 4 digits (****-****-1234) or remove from public payloads.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="disclaimer">
+      <strong>Notice (FR-7.6):</strong> All findings generated are automated detections of potential sensitive data exposure and require human review. Raw sensitive values have been masked and are never written to disk or logs.
+    </div>
+  </div>
+
+  <script>
+    const sevCtx = document.getElementById('sevChart').getContext('2d');
+    new Chart(sevCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ["Critical", "High", "Medium", "Low"],
+        datasets: [{
+          data: [0, 4, 5, 0],
+          backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+      }
+    });
+
+    const typeCtx = document.getElementById('typeChart').getContext('2d');
+    new Chart(typeCtx, {
+      type: 'bar',
+      data: {
+        labels: ["Contact PII", "Government ID"],
+        datasets: [{
+          label: 'Count',
+          data: [5, 4],
+          backgroundColor: '#38bdf8',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#94a3b8' } },
+          y: { ticks: { color: '#94a3b8', stepSize: 1 }, beginAtZero: true }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
